@@ -152,7 +152,9 @@ function makeMessage(amount, rocketRate, bbRate, rocketPercent, result, id) {
 
 🔥 Разница: ${format(result.difference)}
 
-🕒 Время: ${new Date().toLocaleString("ru-RU")}
+🕒 Время: ${new Date().toLocaleString("ru-RU", {
+  timeZone: "Asia/Tashkent"
+})}
 `;
 }
 
@@ -482,7 +484,9 @@ async function startTelegramListener() {
 
 🔥 Разница: ${format(stats.totalDifference)}
 
-🕒 Время: ${new Date().toLocaleString("ru-RU")}
+🕒 Время: ${new Date().toLocaleString("ru-RU", {
+  timeZone: "Asia/Tashkent"
+})}
 `;
 
           await sendToTelegram(chatId, answer);

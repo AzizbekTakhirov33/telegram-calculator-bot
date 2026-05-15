@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Калькулятор сравнения курсов</title>
+
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+
+    body{
+      font-family:Arial,sans-serif;
+      background:linear-gradient(135deg,#eef5ff,#f8fbff);
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      padding:15px;
+      color:#0f172a;
+    }
+
+    .login-screen{
+      position:fixed;
+      inset:0;
+      background:linear-gradient(135deg,#dbeafe,#f8fbff);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:20px;
+    }
+
+    .login-box{
+      width:100%;
+      max-width:420px;
+      background:white;
+      border-radius:28px;
+      padding:28px;
+      box-shadow:0 20px 45px rgba(0,0,0,.12);
+    }
+
+    .login-box h2{
+      text-align:center;
+      color:#0f2f6e;
+      font-size:28px;
+      margin-bottom:22px;
+    }
+
+    .login-btn,.logout-btn{
+      width:100%;
+      height:56px;
+      border:none;
+      border-radius:18px;
+      font-size:18px;
+      font-weight:800;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#0284c7);
+    }
+
+    .login-error{
+      display:none;
+      margin-top:14px;
+      background:#fff7ed;
+      color:#c2410c;
+      padding:12px;
+      border-radius:14px;
+      font-weight:800;
+      text-align:center;
+    }
+
+    .container{
+      width:100%;
+      max-width:620px;
+      background:white;
+      border-radius:28px;
+      padding:22px;
+      box-shadow:0 20px 45px rgba(0,0,0,.08);
+    }
+
+    .top-bar{
+      display:flex;
+      justify-content:flex-end;
+      margin-bottom:8px;
+    }
+
+    .logout-btn{
+      width:auto;
+      height:38px;
+      padding:0 16px;
+      font-size:14px;
+      border-radius:12px;
+      background:#ef4444;
+    }
+
+    h1{
+      text-align:center;
+      margin-bottom:24px;
+      color:#0f2f6e;
+      font-size:28px;
+      font-weight:900;
+    }
+
+    .field{margin-bottom:16px}
+
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-size:16px;
+      font-weight:700;
+      color:#334155;
+    }
+
+    input{
+      width:100%;
+      height:56px;
+      border-radius:18px;
+      border:1px solid #dbe3ef;
+      padding:0 16px;
+      font-size:18px;
+      background:#fbfdff;
+      outline:none;
+    }
+
+    input:focus{
+      border-color:#2563eb;
+      box-shadow:0 0 0 4px rgba(37,99,235,.12);
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .calc-btn,.formula-btn{
+      width:100%;
+      height:58px;
+      border-radius:18px;
+      font-size:18px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .calc-btn{
+      border:none;
+      margin-top:10px;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#0284c7);
+      box-shadow:0 10px 25px rgba(37,99,235,.25);
+    }
+
+    .formula-btn{
+      border:2px solid #2563eb;
+      background:white;
+      color:#2563eb;
+      margin-top:10px;
+    }
+
+    .warning{
+      display:none;
+      margin-top:18px;
+      background:#fff7ed;
+      border:1px solid #fed7aa;
+      color:#c2410c;
+      padding:14px;
+      border-radius:16px;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .status{
+      display:block;
+      margin-top:14px;
+      padding:12px;
+      border-radius:14px;
+      font-weight:700;
+      background:#eff6ff;
+      color:#1d4ed8;
+      text-align:center;
+      min-height:48px;
+    }
+
+    .results{
+      display:block;
+      margin-top:24px;
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
+    }
+
+    .result-card{
+      border-radius:22px;
+      padding:18px;
+      min-height:120px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:8px;
+    }
+
+    .result-card span{
+      font-size:15px;
+      font-weight:800;
+    }
+
+    .result-card b{
+      font-size:30px;
+      line-height:1;
+    }
+
+    .green{background:#ecfdf5;color:#047857}
+    .blue{background:#eff6ff;color:#1d4ed8}
+    .orange{background:#fff7ed;color:#ea580c}
+
+    .note{
+      text-align:center;
+      color:#64748b;
+      margin:18px 0;
+      font-size:14px;
+    }
+
+    .formula-section{
+      display:none;
+      margin-top:14px;
+      border-radius:24px;
+      background:white;
+      border:1px solid #e2e8f0;
+      padding:18px;
+      box-shadow:0 8px 20px rgba(0,0,0,.05);
+    }
+
+    .formula-title{
+      font-size:22px;
+      font-weight:900;
+      margin-bottom:16px;
+      color:#0f172a;
+    }
+
+    .formula-card{
+      position:relative;
+      border-radius:20px;
+      padding:18px 18px 18px 58px;
+      margin-bottom:14px;
+      line-height:1.8;
+      font-size:16px;
+    }
+
+    .formula-card strong{font-size:17px}
+    .final{font-size:22px;font-weight:900}
+
+    .num{
+      position:absolute;
+      left:16px;
+      top:18px;
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:white;
+      font-weight:900;
+      font-size:14px;
+    }
+
+    .green-bg{background:#16a34a}
+    .blue-bg{background:#2563eb}
+    .orange-bg{background:#f97316}
+
+    @media(max-width:600px){
+      h1{font-size:23px}
+      .container{padding:18px}
+      .row{grid-template-columns:1fr;gap:0}
+      .result-grid{grid-template-columns:1fr}
+      .result-card{min-height:95px}
+      .result-card b{font-size:28px}
+      .formula-card{font-size:15px}
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2>Вход</h2>
+
+    <div class="field">
+      <label>Логин</label>
+      <input id="loginInput" type="text" placeholder="Введите логин">
+    </div>
+
+    <div class="field">
+      <label>Пароль</label>
+      <input id="passwordInput" type="password" placeholder="Введите пароль">
+    </div>
+
+    <button class="login-btn" onclick="login()">Войти</button>
+
+    <div class="login-error" id="loginError">
+      Неверный логин или пароль
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="top-bar">
+    <button class="logout-btn" onclick="logout()">Выйти</button>
+  </div>
+
+  <h1>Калькулятор сравнения курсов</h1>
+
+  <div class="field">
+    <label>Общая сумма</label>
+    <input id="amount" type="text" value="258.800">
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Rocket Курс</label>
+      <input id="rocketRate" type="text" value="509">
+    </div>
+
+    <div class="field">
+      <label>BB Курс</label>
+      <input id="bbRate" type="text" value="494">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Процент Rocket</label>
+      <input id="rocketPercent" type="text" value="1.75">
+    </div>
+
+    <div class="field">
+      <label>Процент BB</label>
+      <input id="bbPercent" type="text" value="0">
+    </div>
+  </div>
+
+  <button class="calc-btn" onclick="calculate()">Посчитать</button>
+
+  <div class="warning" id="warning"></div>
+
+  <div class="status" id="status">
+    Готов к расчету 🚀
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-grid">
+      <div class="result-card green">
+        <span>Rocket результат</span>
+        <b id="rocketResult">0,000</b>
+      </div>
+
+      <div class="result-card blue">
+        <span>BB результат</span>
+        <b id="bbResult">0,000</b>
+      </div>
+
+      <div class="result-card orange">
+        <span>Разница</span>
+        <b id="difference">0,000</b>
+      </div>
+    </div>
+
+    <div class="note">
+      Сравнение идет между Rocket и BB курсом
+    </div>
+
+    <button class="formula-btn" onclick="toggleFormula()">
+      📋 <span id="formulaBtnText">Показать формулы расчета</span>
+    </button>
+
+    <div class="formula-section" id="formulaSection">
+      <div class="formula-title">Формулы расчета</div>
+
+      <div class="formula-card green" id="formulaRocket"></div>
+      <div class="formula-card blue" id="formulaBB"></div>
+      <div class="formula-card orange" id="formulaDifference"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const LOGIN = "admin";
+  const PASSWORD = "admin";
+
+  let formulaVisible = false;
+
+  function checkAuth(){
+    const isLogged = localStorage.getItem("calculatorLogged") === "yes";
+
+    if(isLogged){
+      document.getElementById("loginScreen").style.display = "none";
+    }else{
+      document.getElementById("loginScreen").style.display = "flex";
+    }
+  }
+
+  function login(){
+    const loginValue = document.getElementById("loginInput").value.trim();
+    const passwordValue = document.getElementById("passwordInput").value.trim();
+
+    if(loginValue === LOGIN && passwordValue === PASSWORD){
+      localStorage.setItem("calculatorLogged","yes");
+      document.getElementById("loginScreen").style.display = "none";
+    }else{
+      document.getElementById("loginError").style.display = "block";
+    }
+  }
+
+  function logout(){
+    localStorage.removeItem("calculatorLogged");
+    document.getElementById("loginScreen").style.display = "flex";
+  }
+
+  function parseMoney(value){
+    value = value.toString().trim().replace(/\s/g,'');
+
+    if(value.includes(",") && value.includes(".")){
+      value = value.replace(/\./g,'').replace(",",".");
+    }
+    else if(value.includes(".")){
+      let parts = value.split(".");
+      if(parts.length > 1 && parts[parts.length - 1].length === 3){
+        value = value.replace(/\./g,'');
+      }
+    }
+    else if(value.includes(",")){
+      value = value.replace(",",".");
+    }
+
+    return Number(value);
+  }
+
+  function parsePercent(value){
+    return Number(value.toString().trim().replace(",","."));
+  }
+
+  function format(num){
+    return Number(num).toLocaleString("ru-RU",{
+      minimumFractionDigits:3,
+      maximumFractionDigits:3
+    });
+  }
+
+  function saveLastResult(data){
+    localStorage.setItem("lastCalculatorResult", JSON.stringify(data));
+  }
+
+  function loadLastResult(){
+    const saved = localStorage.getItem("lastCalculatorResult");
+
+    if(!saved) return;
+
+    const data = JSON.parse(saved);
+
+    document.getElementById("amount").value = data.amountInput;
+    document.getElementById("rocketRate").value = data.rocketRateInput;
+    document.getElementById("bbRate").value = data.bbRateInput;
+    document.getElementById("rocketPercent").value = data.rocketPercentInput;
+    document.getElementById("bbPercent").value = data.bbPercentInput;
+
+    document.getElementById("rocketResult").innerText = data.rocketResultText;
+    document.getElementById("bbResult").innerText = data.bbResultText;
+    document.getElementById("difference").innerText = data.differenceText;
+
+    document.getElementById("formulaRocket").innerHTML = data.formulaRocket;
+    document.getElementById("formulaBB").innerHTML = data.formulaBB;
+    document.getElementById("formulaDifference").innerHTML = data.formulaDifference;
+
+    document.getElementById("status").innerHTML = data.status || "Готов к расчету 🚀";
+  }
+
+  function calculate(){
+    const amountInput = document.getElementById("amount").value;
+    const rocketRateInput = document.getElementById("rocketRate").value;
+    const bbRateInput = document.getElementById("bbRate").value;
+    const rocketPercentInput = document.getElementById("rocketPercent").value;
+    const bbPercentInput = document.getElementById("bbPercent").value;
+
+    const amount = parseMoney(amountInput);
+    const rocketRate = parseMoney(rocketRateInput);
+    const bbRate = parseMoney(bbRateInput);
+    const rocketPercent = parsePercent(rocketPercentInput);
+    const bbPercent = parsePercent(bbPercentInput);
+
+    const warning = document.getElementById("warning");
+    const status = document.getElementById("status");
+
+    warning.style.display = "none";
+    warning.innerHTML = "";
+
+    status.style.display = "block";
+    status.innerHTML = "⏳ Выполняется расчет...";
+
+    if(!amount || !rocketRate || !bbRate || isNaN(rocketPercent) || isNaN(bbPercent)){
+      warning.style.display = "block";
+      warning.innerHTML = "⚠️ Заполните все поля правильно!";
+      status.innerHTML = "❌ Ошибка заполнения";
+      return;
+    }
+
+    if(rocketRate <= bbRate){
+      warning.style.display = "block";
+      warning.innerHTML = "⚠️ Rocket Курс должен быть больше BB Курса!";
+    }
+
+    const rocketPercentValue = rocketRate * rocketPercent / 100;
+    const rocketFinalRate = rocketRate - rocketPercentValue;
+    const rocketResult = amount / rocketFinalRate;
+
+    const bbPercentValue = bbRate * bbPercent / 100;
+    const bbFinalRate = bbRate - bbPercentValue;
+    const bbResult = amount / bbFinalRate;
+
+    const difference = bbResult - rocketResult;
+
+    document.getElementById("rocketResult").innerText = format(rocketResult);
+    document.getElementById("bbResult").innerText = format(bbResult);
+    document.getElementById("difference").innerText = format(difference);
+
+    document.getElementById("formulaRocket").innerHTML = `
+      <div class="num green-bg">1</div>
+      <strong>Rocket Курс:</strong><br>
+      ${format(rocketRate)} − ${rocketPercent}%<br>
+      = ${format(rocketRate)} − ${format(rocketPercentValue)}<br>
+      = ${format(rocketFinalRate)}<br><br>
+      ${format(amount)} ÷ ${format(rocketFinalRate)}<br>
+      <span class="final">= ${format(rocketResult)}</span>
+    `;
+
+    document.getElementById("formulaBB").innerHTML = `
+      <div class="num blue-bg">2</div>
+      <strong>BB Курс:</strong><br>
+      ${format(bbRate)} − ${bbPercent}%<br>
+      = ${format(bbRate)} − ${format(bbPercentValue)}<br>
+      = ${format(bbFinalRate)}<br><br>
+      ${format(amount)} ÷ ${format(bbFinalRate)}<br>
+      <span class="final">= ${format(bbResult)}</span>
+    `;
+
+    document.getElementById("formulaDifference").innerHTML = `
+      <div class="num orange-bg">3</div>
+      <strong>Разница:</strong><br>
+      ${format(bbResult)} − ${format(rocketResult)}<br>
+      <span class="final">= ${format(difference)}</span>
+    `;
+
+    saveLastResult({
+      amountInput,
+      rocketRateInput,
+      bbRateInput,
+      rocketPercentInput,
+      bbPercentInput,
+      rocketResultText: format(rocketResult),
+      bbResultText: format(bbResult),
+      differenceText: format(difference),
+      formulaRocket: document.getElementById("formulaRocket").innerHTML,
+      formulaBB: document.getElementById("formulaBB").innerHTML,
+      formulaDifference: document.getElementById("formulaDifference").innerHTML,
+      status: "⏳ Отправка в Telegram..."
+    });
+
+    fetch("http://localhost:3000/calculate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        amount,
+        rocketRate,
+        bbRate,
+        rocketPercent,
+        bbPercent,
+        rocketResult,
+        bbResult,
+        difference
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if(data.success){
+        status.innerHTML = "✅ Отправлено в Telegram и сохранено";
+      }else{
+        status.innerHTML = "⚠️ Backend ответил с ошибкой";
+      }
+
+      const saved = JSON.parse(localStorage.getItem("lastCalculatorResult") || "{}");
+      saved.status = status.innerHTML;
+      localStorage.setItem("lastCalculatorResult", JSON.stringify(saved));
+    })
+    .catch(error => {
+
+        status.innerHTML =
+            "✅ Расчет выполнен и сохранен";
+
+        const saved =
+            JSON.parse(
+            localStorage.getItem("lastCalculatorResult") || "{}"
+            );
+
+        saved.status = status.innerHTML;
+
+        localStorage.setItem(
+            "lastCalculatorResult",
+            JSON.stringify(saved)
+        );
+
+        console.log("Backend warning:", error);
+        });
+  }
+
+  function toggleFormula(){
+    const section = document.getElementById("formulaSection");
+    const btnText = document.getElementById("formulaBtnText");
+
+    formulaVisible = !formulaVisible;
+
+    if(formulaVisible){
+      section.style.display = "block";
+      btnText.innerText = "Скрыть формулы расчета";
+    }
+    else{
+      section.style.display = "none";
+      btnText.innerText = "Показать формулы расчета";
+    }
+  }
+
+  checkAuth();
+  loadLastResult();
+</script>
+
+</body>
+</html>

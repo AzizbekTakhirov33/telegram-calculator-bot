@@ -39,6 +39,7 @@ db.run(`
     bb_percent REAL,
     rocket_final_rate REAL,
     bb_final_rate REAL,
+    rocket_base_result REAL,
     rocket_result REAL,
     bb_result REAL,
     difference REAL,
@@ -51,35 +52,31 @@ db.run(`
 db.run(`ALTER TABLE calculations ADD COLUMN office_profit REAL`, () => {});
 db.run(`ALTER TABLE calculations ADD COLUMN telegram_chat_id TEXT`, () => {});
 db.run(`ALTER TABLE calculations ADD COLUMN telegram_message_id INTEGER`, () => {});
+db.run(`ALTER TABLE calculations ADD COLUMN rocket_base_result REAL`, () => {});
 
 function format(num) {
-  return Number(num).toLocaleString("ru-RU", {
+  return Number(num || 0).toLocaleString("en-US", {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3
   });
 }
 
-function toNumber(value) {
+function parseNumber(value) {
+  if (value === undefined || value === null) return 0;
+
+  value = value.toString().trim().replace(/\s/g, "");
+
+  // Новый формат:
+  // 258,800.000 => 258800.000
+  // 1,250,000.500 => 1250000.500
+  value = value.replace(/,/g, "");
+
   const num = Number(value);
   return Number.isNaN(num) ? 0 : num;
 }
 
-function parseNumber(value) {
-  value = value.toString().trim().replace(/\s/g, "");
-
-  if (value.includes(",") && value.includes(".")) {
-    value = value.replace(/\./g, "").replace(",", ".");
-  } else if (value.includes(".")) {
-    const parts = value.split(".");
-
-    if (parts.length > 1 && parts[parts.length - 1].length === 3) {
-      value = value.replace(/\./g, "");
-    }
-  } else if (value.includes(",")) {
-    value = value.replace(",", ".");
-  }
-
-  return Number(value);
+function toNumber(value) {
+  return parseNumber(value);
 }
 
 async function telegram(method, body) {
@@ -119,22 +116,26 @@ async function deleteTelegramMessage(chatId, messageId) {
 function calculateData(amount, rocketRate, bbRate, rocketPercent, bbPercent) {
   const rocketPercentValue = rocketRate * rocketPercent / 100;
   const rocketFinalRate = rocketRate - rocketPercentValue;
+
+  const rocketBaseResult = amount / rocketRate;
   const rocketResult = amount / rocketFinalRate;
 
   const bbPercentValue = bbRate * bbPercent / 100;
   const bbFinalRate = bbRate - bbPercentValue;
   const bbResult = amount / bbFinalRate;
 
+  const officeProfit = rocketResult - rocketBaseResult;
   const difference = bbResult - rocketResult;
-  const officeProfit = rocketPercentValue;
 
   return {
+    rocketPercentValue,
     rocketFinalRate,
+    rocketBaseResult,
     rocketResult,
     bbFinalRate,
     bbResult,
-    difference,
-    officeProfit
+    officeProfit,
+    difference
   };
 }
 
@@ -146,9 +147,15 @@ function makeMessage(amount, rocketRate, bbRate, rocketPercent, result, id) {
 
 💰 Сумма: ${format(amount)}
 
-🚀 Rocket курс: ${format(rocketRate)} (-${rocketPercent}% = ${format(result.rocketFinalRate)})
+🚀 Rocket курс: ${format(rocketRate)}
+📉 Rocket - ${rocketPercent}% = ${format(result.rocketFinalRate)}
 🔵 BB курс: ${format(bbRate)}
-💵 Прибыль Офиса: ${rocketPercent}% = ${format(result.officeProfit)}
+
+📌 Сумма / Rocket: ${format(result.rocketBaseResult)}
+📌 Сумма / Rocket - ${rocketPercent}%: ${format(result.rocketResult)}
+📌 Сумма / BB: ${format(result.bbResult)}
+
+💵 Прибыль Офиса: ${format(result.officeProfit)}
 
 🔥 Разница: ${format(result.difference)}
 
@@ -172,6 +179,7 @@ function saveCalculation(amount, rocketRate, bbRate, rocketPercent, bbPercent, r
         bb_percent,
         rocket_final_rate,
         bb_final_rate,
+        rocket_base_result,
         rocket_result,
         bb_result,
         difference,
@@ -179,7 +187,7 @@ function saveCalculation(amount, rocketRate, bbRate, rocketPercent, bbPercent, r
         telegram_chat_id,
         telegram_message_id
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         new Date().toISOString(),
@@ -190,6 +198,7 @@ function saveCalculation(amount, rocketRate, bbRate, rocketPercent, bbPercent, r
         bbPercent,
         result.rocketFinalRate,
         result.bbFinalRate,
+        result.rocketBaseResult,
         result.rocketResult,
         result.bbResult,
         result.difference,
@@ -263,12 +272,15 @@ function parseTelegramCalculation(text) {
 
   if (lines.length < 2) return null;
 
-  const rates = lines[0].split("-").map(x => x.trim());
+  // Берем первые 2 числа из первой строки:
+  // 509 - 494
+  // 509 - - 494
+  const rateNumbers = lines[0].match(/\d[\d,]*(?:\.\d+)?/g);
 
-  if (rates.length !== 2) return null;
+  if (!rateNumbers || rateNumbers.length < 2) return null;
 
-  const rocketRate = parseNumber(rates[0]);
-  const bbRate = parseNumber(rates[1]);
+  const rocketRate = parseNumber(rateNumbers[0]);
+  const bbRate = parseNumber(rateNumbers[1]);
   const amount = parseNumber(lines[1]);
 
   if (!rocketRate || !bbRate || !amount) return null;
@@ -343,10 +355,6 @@ function getPeriodStats(fromDate, toDate) {
   });
 }
 
-// ✅ ГЛАВНАЯ ЗАЩИТА:
-// ❌ Личка с ботом запрещена
-// ❌ Чужие группы/каналы запрещены
-// ✅ Работает только там, где chat.id === CHANNEL_ID
 function isAllowedTelegramChat(messageObj) {
   const chatId = String(messageObj.chat.id);
   const chatType = messageObj.chat.type;
@@ -445,9 +453,6 @@ async function startTelegramListener() {
 
         if (!messageObj || !messageObj.text) continue;
 
-        // ✅ ВОТ ТУТ ЗАПРЕТ:
-        // Теперь бот принимает команды только из CHANNEL_ID
-        // Личка и другие чаты полностью игнорируются
         if (!isAllowedTelegramChat(messageObj)) continue;
 
         const chatId = messageObj.chat.id;
@@ -455,11 +460,15 @@ async function startTelegramListener() {
         const lowerText = text.toLowerCase();
 
         if (lowerText === "/start") {
-  await sendToTelegram(chatId, `
+          await sendToTelegram(chatId, `
 🤖 RocketCalculator Bot
 
-Этот бот считает разницу между Rocket и BB курсом,
-прибыль офиса и сохраняет историю расчетов.
+Этот бот считает:
+• сумму / Rocket курс
+• сумму / Rocket курс - 1.75%
+• сумму / BB курс
+• базовую прибыль офиса
+• разницу между BB и Rocket
 
 ━━━━━━━━━━
 🧮 РАСЧЕТ
@@ -467,11 +476,15 @@ async function startTelegramListener() {
 
 Формат:
 Rocket Курс - BB Курс
-xxx.xxx
+xxx,xxx.xxx
 
 Пример:
 518 - 494
-461.562
+461,562.000
+
+Можно также:
+509 - 494
+258,800.000
 
 ━━━━━━━━━━
 📊 ИТОГ
@@ -522,8 +535,8 @@ https://azizbektakhirov33.github.io/telegram-calculator-bot/frontend/index.html
 ❌ Личка отключена
 ❌ Чужие группы запрещены
 `);
-  continue;
-}
+          continue;
+        }
 
         if (lowerText === "сброс") {
           await resetHistory();
@@ -564,7 +577,7 @@ https://azizbektakhirov33.github.io/telegram-calculator-bot/frontend/index.html
 
 💰 Сумма: ${format(stats.totalAmount)}
 
-💵 Прибыль Офиса: ${ROCKET_PERCENT}% = ${format(stats.totalOfficeProfit)}
+💵 Прибыль Офиса: ${format(stats.totalOfficeProfit)}
 
 🔥 Разница: ${format(stats.totalDifference)}
 

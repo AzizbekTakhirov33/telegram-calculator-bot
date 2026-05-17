@@ -343,6 +343,27 @@ function getPeriodStats(fromDate, toDate) {
   });
 }
 
+// ✅ ГЛАВНАЯ ЗАЩИТА:
+// ❌ Личка с ботом запрещена
+// ❌ Чужие группы/каналы запрещены
+// ✅ Работает только там, где chat.id === CHANNEL_ID
+function isAllowedTelegramChat(messageObj) {
+  const chatId = String(messageObj.chat.id);
+  const chatType = messageObj.chat.type;
+
+  if (chatType === "private") {
+    console.log(`⛔ Игнор лички: ${chatId}`);
+    return false;
+  }
+
+  if (chatId !== String(CHANNEL_ID)) {
+    console.log(`⛔ Игнор чужого чата: ${chatId}`);
+    return false;
+  }
+
+  return true;
+}
+
 app.get("/", (req, res) => {
   res.send("Backend работает ✅");
 });
@@ -352,13 +373,20 @@ app.post("/calculate", async (req, res) => {
     const amount = toNumber(req.body.amount);
     const rocketRate = toNumber(req.body.rocketRate);
     const bbRate = toNumber(req.body.bbRate);
-    const rocketPercent = toNumber(req.body.rocketPercent);
-    const bbPercent = toNumber(req.body.bbPercent);
+    const rocketPercent = toNumber(req.body.rocketPercent || ROCKET_PERCENT);
+    const bbPercent = toNumber(req.body.bbPercent || BB_PERCENT);
 
     if (!amount || !rocketRate || !bbRate) {
       return res.status(400).json({
         success: false,
         message: "Неправильные данные"
+      });
+    }
+
+    if (rocketRate <= bbRate) {
+      return res.status(400).json({
+        success: false,
+        message: "Rocket курс должен быть больше BB курса"
       });
     }
 
@@ -416,6 +444,11 @@ async function startTelegramListener() {
         const messageObj = update.message || update.channel_post;
 
         if (!messageObj || !messageObj.text) continue;
+
+        // ✅ ВОТ ТУТ ЗАПРЕТ:
+        // Теперь бот принимает команды только из CHANNEL_ID
+        // Личка и другие чаты полностью игнорируются
+        if (!isAllowedTelegramChat(messageObj)) continue;
 
         const chatId = messageObj.chat.id;
         const text = messageObj.text.trim();
